@@ -3,6 +3,8 @@
 # @brief 
 #/
 
+if (CONFIG_ENABLE_LED STREQUAL "y")
+
 # APP_PATH
 set(APP_PATH ${CMAKE_CURRENT_LIST_DIR})
 
@@ -10,15 +12,10 @@ set(APP_PATH ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(APP_NAME ${APP_PATH} NAME)
 
 # APP_SRCS
-file(GLOB_RECURSE audio_spk_src "${APP_PATH}/src/*.c")
+aux_source_directory(${APP_PATH}/src APP_SRCS)
 
-set(APP_SRCS ${audio_spk_src})
-
-set(APP_MODULE_INC 
-    ${APP_PATH}/src
-    ${APP_PATH}/src/minimp3
-)
-
+# APP_INC
+set(APP_INC ${APP_PATH}/include)
 
 ########################################
 # Target Configure
@@ -28,9 +25,13 @@ add_library(${EXAMPLE_LIB})
 target_sources(${EXAMPLE_LIB}
     PRIVATE
         ${APP_SRCS}
-)
+    )
 
 target_include_directories(${EXAMPLE_LIB}
     PRIVATE
-        ${APP_MODULE_INC}
+        ${APP_INC}
     )
+
+else()
+message(FATAL_ERROR "led cannot work when CONFIG_ENABLE_LED is not set")
+endif()
