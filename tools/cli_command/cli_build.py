@@ -4,6 +4,7 @@
 import os
 import sys
 import click
+import shutil
 
 from tools.cli_command.util import (
     get_logger, get_global_params, check_proj_dir,
@@ -11,7 +12,9 @@ from tools.cli_command.util import (
     do_subprocess, get_country_code
 )
 from tools.cli_command.util_git import (
-    git_clone, git_checkout, set_repo_mirro, git_get_commit)
+    git_clone, git_checkout, set_repo_mirro, git_get_commit
+)
+from tools.cli_command.util_files import rm_rf
 from tools.cli_command.cli_check import update_submodules
 from tools.cli_command.cli_config import init_using_config
 
@@ -41,18 +44,35 @@ def get_platform_info(platform):
 
 def check_platform_commit(repo_path, commit):
     logger = get_logger()
+    params = get_global_params()
     if not os.path.exists(repo_path):
         logger.error(f"Not found {repo_path}")
         return False
 
+    if not commit:
+        # Maybe a newly created platform
+        return True
+
+    dont_update_platform = params["dont_update_platform"]
+    need_prompt = not os.path.exists(dont_update_platform)
+
     real_commit = git_get_commit(repo_path)
-    if real_commit != commit:
+    if need_prompt and real_commit != commit:
         logger.warning(f"The commit required by the platform is {commit},")
         logger.warning(f"but currently {real_commit} is being used.")
-        logger.info("*** The command [tos.py update] can be executed. ***")
-        logger.info("*** Or use the git tool to checkout to \
-the target commit. ***")
-        return False
+        logger.info("Update the platform to the required commit?")
+        logger.note("y(es) / n(o) / d(on't prompt again)")
+        ret = input("input: ").upper()
+        if ret == "Y":
+            if not git_checkout(repo_path, commit):
+                logger.error("Update platform error. Please try again.")
+                return False
+            logger.note("Platform updated successfully.")
+        elif ret == "N":
+            logger.info("Use command [tos.py update] to update the platform.")
+        elif ret == "D":
+            with open(dont_update_platform, 'w') as f:
+                f.write("1")
 
     return True
 
@@ -62,19 +82,19 @@ def download_platform(platform):
     When the platform path does not exist,
     git clone the repository and switch to the commit
     '''
-    ret = True
     logger = get_logger()
     params = get_global_params()
     platforms_root = params["platforms_root"]
     platform_root = os.path.join(platforms_root, platform)
     platform_info = get_platform_info(platform)
-    repo = platform_info["repo"]
-    commit = platform_info["commit"]
+    repo = platform_info.get("repo", "")
+    commit = platform_info.get("commit", "")
 
     if os.path.exists(platform_root):
         logger.info(f"Platform [{platform}] is exists.")
-        check_platform_commit(platform_root, commit)
-        return ret
+        if not check_platform_commit(platform_root, commit):
+            return False
+        return True
 
     logger.info(f"Downloading platform [{platform}] ...")
 
@@ -84,29 +104,38 @@ def download_platform(platform):
 
     if not git_clone(repo, platform_root) \
             or not git_checkout(platform_root, commit):
-        ret = False
+        return False
 
     if code == "China":
         set_repo_mirro(unset=True)
 
-    return ret
+    return True
 
 
 def prepare_platform(platform, chip=""):
     '''
     Execute:
     python ./platform/xxx/platform_prepare.py $CHIP
+    or
+    ./platform_prepare.sh $CHIP
     '''
     logger = get_logger()
     params = get_global_params()
     platforms_root = params["platforms_root"]
     platform_root = os.path.join(platforms_root, platform)
     prepare_py = os.path.join(platform_root, "platform_prepare.py")
-    if not os.path.exists(prepare_py):
+    prepare_sh = os.path.join(platform_root, "platform_prepare.sh")
+    if not os.path.exists(prepare_py) and not os.path.exists(prepare_sh):
         logger.debug("no need platform prepare.")
         return True
+
+    if os.path.exists(prepare_py):
+        parpare_cmd = "python platform_prepare.py"
+    else:
+        parpare_cmd = "./platform_prepare.sh"
+
     logger.info(f"Preparing platform [{platform}] ...")
-    cmd = f"cd {platform_root} && python platform_prepare.py {chip}"
+    cmd = f"cd {platform_root} && {parpare_cmd} {chip}"
     ret = do_subprocess(cmd)
     if 0 != ret:
         return False
@@ -118,19 +147,27 @@ def build_setup(platform, project_name, framework, chip=""):
     Execute:
     python ./platform/xxx/build_setup.py
     $PROJ_NAME $PLATFORM $FRAMEWORK $CHIP
+    or
+    ./build_setup.sh $PROJ_NAME $PLATFORM $FRAMEWORK $CHIP
     '''
     logger = get_logger()
     params = get_global_params()
     platforms_root = params["platforms_root"]
     platform_root = os.path.join(platforms_root, platform)
     setup_py = os.path.join(platform_root, "build_setup.py")
-    if not os.path.exists(setup_py):
+    setup_sh = os.path.join(platform_root, "build_setup.sh")
+    if not os.path.exists(setup_py) and not os.path.exists(setup_sh):
         logger.debug("no need build setup.")
         return True
+
+    if os.path.exists(setup_py):
+        setup_cmd = "python build_setup.py"
+    else:
+        setup_cmd = "./build_setup.sh"
+
     logger.info("Build setup ...")
-    cmd = f"cd {platform_root} && "
-    cmd += f"python build_setup.py \
-{project_name} {platform} {framework} {chip}"
+    cmd = f"cd {platform_root} && {setup_cmd} "
+    cmd += f"{project_name} {platform} {framework} {chip}"
     ret = do_subprocess(cmd)
     if 0 != ret:
         return False
@@ -195,10 +232,15 @@ def ninja_build(build_path, verbose=False):
 
 
 def check_bin_file(using_data,):
+    '''
+    check bin file exists
+    and copy to dist
+    '''
     logger = get_logger()
     params = get_global_params()
 
     app_bin_path = params["app_bin_path"]
+    dist_root = params["dist_root"]
 
     app_name = using_data.get("CONFIG_PROJECT_NAME", "")
     app_ver = using_data.get("CONFIG_PROJECT_VERSION", "")
@@ -209,6 +251,11 @@ def check_bin_file(using_data,):
         logger.error(f"Not found {app_bin_file}")
         return False
 
+    dist_path = os.path.join(dist_root, f"{app_name}_{app_ver}")
+    os.makedirs(dist_root, exist_ok=True)
+    rm_rf(dist_path)
+    shutil.copytree(app_bin_path, dist_path)
+
     platform_name = using_data.get("CONFIG_PLATFORM_CHOICE", "")
     framework = using_data.get("CONFIG_FRAMEWORK_CHOICE", "")
     chip_name = using_data.get("CONFIG_CHIP_CHOICE", "")
@@ -217,7 +264,7 @@ def check_bin_file(using_data,):
     build_info = f'''
 ====================[ BUILD SUCCESS ]===================
  Target    : {bin_name}
- Output    : {app_bin_path}
+ Output    : {dist_path}
  Platform  : {platform_name}
  Chip      : {chip_name}
  Board     : {board_name}

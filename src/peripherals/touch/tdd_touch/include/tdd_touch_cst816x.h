@@ -1,13 +1,21 @@
 /**
  * @file tdd_touch_cst816x.h
- * @version 0.1
- * @date 2025-06-09
+ * @brief CST816X series capacitive touch controller driver interface definitions
+ *
+ * This header file defines the interface for the CST816X series capacitive touch
+ * controller drivers in the TDD layer. It includes register definitions, configuration
+ * parameters, and function prototypes for CST816X family touch controllers (CST816S,
+ * CST816D, CST816T, CST820, CST716) with single-point touch and gesture support.
+ *
+ * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
+ *
  */
 
 #ifndef __TDD_TOUCH_CST816X_H__
 #define __TDD_TOUCH_CST816X_H__
 
 #include "tuya_cloud_types.h"
+#include "tdl_touch_driver.h"
 #include "tdd_touch_i2c.h"
 
 #ifdef __cplusplus
@@ -30,7 +38,7 @@ extern "C" {
 #define REG_IRQ_CTL       0xFA
 #define REG_DIS_AUTOSLEEP 0xFE
 
-#define IRQ_EN_MOTION     0x70
+#define IRQ_EN_MOTION 0x70
 
 /***********************************************************
 ***********************typedef define***********************
@@ -44,10 +52,15 @@ typedef enum {
     CST816S_ALL_MODE,
 } CST816X_MODE;
 
+typedef struct {
+    TDD_TOUCH_I2C_CFG_T i2c_cfg;
+    TDL_TOUCH_CONFIG_T tp_cfg;
+} TDD_TOUCH_CST816X_INFO_T;
+
 /***********************************************************
 ********************function declaration********************
 ***********************************************************/
-OPERATE_RET tdd_touch_i2c_cst816x_register(char *name, TDD_TOUCH_I2C_CFG_T *cfg);
+OPERATE_RET tdd_touch_i2c_cst816x_register(char *name, TDD_TOUCH_CST816X_INFO_T *cfg);
 
 #ifdef __cplusplus
 }

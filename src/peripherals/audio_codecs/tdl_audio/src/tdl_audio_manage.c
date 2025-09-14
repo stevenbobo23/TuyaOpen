@@ -1,8 +1,26 @@
 /**
  * @file tdl_audio_manage.c
- * @brief tdl_audio_manage module is used to
- * @version 0.1
- * @date 2025-04-08
+ * @brief Implementation of Tuya Driver Layer audio management system.
+ *
+ * This file implements the audio management functionality for the Tuya Driver
+ * Layer (TDL). It provides a unified interface for managing multiple audio
+ * drivers, including driver registration, device discovery, and audio operations.
+ * The implementation uses a linked list to maintain registered audio drivers
+ * and provides thread-safe access to audio resources.
+ *
+ * Key features implemented:
+ * - Dynamic audio driver registration and management
+ * - Linked list-based driver storage for efficient lookup
+ * - Audio device discovery by name
+ * - Unified interface for audio operations (open, play, volume control, close)
+ * - Memory management for driver nodes
+ * - Error handling and validation
+ *
+ * The management layer acts as a bridge between applications and the underlying
+ * audio drivers, providing a consistent API regardless of the hardware platform.
+ *
+ * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
+ *
  */
 
 #include "tdl_audio_driver.h"
@@ -112,7 +130,6 @@ OPERATE_RET tdl_audio_open(TDL_AUDIO_HANDLE_T handle, TDL_AUDIO_MIC_CB mic_cb)
     TDL_AUDIO_NODE_T *node = (TDL_AUDIO_NODE_T *)handle;
 
     TUYA_CHECK_NULL_RETURN(node, OPRT_INVALID_PARM);
-    TUYA_CHECK_NULL_RETURN(mic_cb, OPRT_INVALID_PARM);
 
     if (NULL == node->tdd_hdl) {
         PR_ERR("audio driver %s not register", node->name);

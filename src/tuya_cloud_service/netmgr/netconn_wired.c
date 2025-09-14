@@ -13,7 +13,9 @@
  * Ethernet connectivity, ensuring reliable and stable network communication for
  * Tuya IoT devices.
  *
- * @copyright Copyright (c) 2021-2024 Tuya Inc. All Rights Reserved.
+ * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
+ *
+ * 2025-07-11   yangjie     Adjust WiFi priority
  *
  */
 
@@ -22,12 +24,16 @@
 #include "tal_wired.h"
 #include "mqtt_bind.h"
 
-netmgr_conn_wired_t s_netmgr_wired = {.base = {.pri = 1,
-                                               .type = NETCONN_WIRED,
-                                               .open = netconn_wired_open,
-                                               .close = netconn_wired_close,
-                                               .get = netconn_wired_get,
-                                               .set = netconn_wired_set}};
+netmgr_conn_wired_t s_netmgr_wired = {
+    .base = {.pri = 2,
+             .type = NETCONN_WIRED,
+             .status = NETMGR_LINK_DOWN,
+             .card_type = TAL_NET_TYPE_POSIX,
+             .open = netconn_wired_open,
+             .close = netconn_wired_close,
+             .get = netconn_wired_get,
+             .set = netconn_wired_set},
+};
 
 /**
  * @brief a callback used to process the lowlayer event

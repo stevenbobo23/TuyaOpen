@@ -17,10 +17,7 @@ set(APP_INC ${APP_PATH}/include)
 
 # APP_OPTIONS
 set(APP_OPTIONS "-W")
-list(APPEND APP_OPTIONS "-Wall")
-list(APPEND APP_OPTIONS "-DSTATIC_IN_RELEASE=static")
-list(APPEND APP_OPTIONS -DEXAMPLE_VER="${EXAMPLE_VER}")
-add_definitions(-DMAJOR_VERSION=4 -DMINOR_VERSION=1 -DMICRO_VERSION=1 -DVERSION=\"4.1.1\")
+list(APPEND APP_OPTIONS "-Wall" "-DLV_LVGL_H_INCLUDE_SIMPLE")
 
 ########################################
 # Target Configure

@@ -18,9 +18,10 @@ __pycache__
 .build
 *.using_config
 .mirror
+dist
 
 /arduino-tuyaopen
-/tools/tyutool/*tyutool_*
-/tools/tyutool/cache/
+/tools/tyutool/
 /.set_example
 /dist
+*monitor.log

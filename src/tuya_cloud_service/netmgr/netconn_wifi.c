@@ -1,15 +1,13 @@
 /**
  * @file netconn_wifi.c
- * @brief Implementation of WiFi connection management functions.
+ * @brief Implementation of WiFi network connection management for Tuya IoT devices.
  *
- * This file provides the functionality to manage WiFi connections including
- * connecting to a WiFi network, disconnecting, handling connection events,
- * and managing WiFi network configurations.
+ * This file provides functions and structures to manage WiFi network connections,
+ * including connection, disconnection, configuration, and event handling.
  *
- * The implementation includes managing WiFi connection states, handling
- * WiFi events, and storing/retrieving WiFi network information.
+ * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
  *
- * @copyright Copyright (c) 2021-2024 Tuya Inc. All Rights Reserved.
+ * 2025-07-11   yangjie     Adjust WiFi priority
  *
  */
 
@@ -17,6 +15,9 @@
 #include "tal_api.h"
 #include "cJSON.h"
 #include "ap_netcfg.h"
+#include "tuya_lan.h"
+
+#include "tal_network_register.h"
 
 #ifdef ENABLE_BLUETOOTH
 #include "ble_mgr.h"
@@ -35,14 +36,29 @@ typedef struct {
     netmgr_conn_wifi_t *handle;
 } netmgr_wifi_msg_t;
 
-netmgr_conn_wifi_t s_netmgr_wifi = {.base = {.pri = 0,
-                                             .type = NETCONN_WIFI,
-                                             .open = netconn_wifi_open,
-                                             .close = netconn_wifi_close,
-                                             .get = netconn_wifi_get,
-                                             .set = netconn_wifi_set},
-                                    .ccode = {"CN"},
-                                    .conn = {.table_size = NETCONN_WIFI_CONN_TABLE, .table = {1, 3, 5, 10, 15, 20}}};
+netmgr_conn_wifi_t s_netmgr_wifi = {
+    .base =
+        {
+            .pri = 1,
+            .type = NETCONN_WIFI,
+            .status = NETMGR_LINK_DOWN,
+#if (defined(ENABLE_LIBLWIP) && (ENABLE_LIBLWIP == 1)) || 100 == OPERATING_SYSTEM
+            .card_type = TAL_NET_TYPE_POSIX,
+#else
+            .card_type = TAL_NET_TYPE_PLATFORM,
+#endif
+            .open = netconn_wifi_open,
+            .close = netconn_wifi_close,
+            .get = netconn_wifi_get,
+            .set = netconn_wifi_set,
+        },
+    .ccode = {"CN"},
+    .conn =
+        {
+            .table_size = NETCONN_WIFI_CONN_TABLE,
+            .table = {1, 3, 5, 10, 15, 20},
+        },
+};
 
 static void __netconn_wifi_connect_process(void *msg)
 {
@@ -263,7 +279,8 @@ int __netconn_activate_token_get(tuya_iot_config_t *config)
 
     // init netcfg
     netcfg_init();
-    if (netmgr_wifi->netcfg.type & TUYA_NETMGR_NETCFG_AP) {
+    TAL_NETWORK_CARD_TYPE_E active_type = tal_network_card_get_active_type();
+    if (netmgr_wifi->netcfg.type & TUYA_NETMGR_NETCFG_AP && active_type != TAL_NET_TYPE_AT_MODEM) {
         ap_netcfg_init(&netmgr_wifi->netcfg);
         netcfg_start(NETCFG_TUYA_WIFI_AP, __netconn_wifi_netcfg_finish, NULL);
     }
