@@ -1,18 +1,20 @@
 /**
  * @file tdd_disp_spi_gc9a01.c
- * @brief Implementation of GC9A01 TFT LCD driver with SPI interface. This file
- *        provides hardware-specific control functions for GC9A01 series TFT
- *        displays, including initialization sequence, pixel data transfer,
- *        and display control commands through SPI communication.
+ * @brief GC9A01 LCD driver implementation with SPI interface
  *
- * @copyright Copyright (c) 2021-2024 Tuya Inc. All Rights Reserved.
+ * This file provides the implementation for GC9A01 TFT LCD displays using SPI interface.
+ * It includes the initialization sequence, display control functions, and hardware-specific
+ * configurations for GC9A01 displays. The GC9A01 is a circular display controller
+ * optimized for 240x240 resolution with 262K colors.
+ *
+ * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
  *
  */
 #include "tuya_cloud_types.h"
 #include "tal_log.h"
 
+#include "tdd_display_spi.h"
 #include "tdd_disp_gc9a01.h"
-#include "tdl_display_driver.h"
 
 /***********************************************************
 ***********************const define**********************
@@ -69,18 +71,33 @@ const uint8_t cGC9A01_INIT_SEQ[] = {
 };
 
 static TDD_DISP_SPI_CFG_T sg_disp_spi_cfg = {
-    .cfg = {
-        .cmd_caset = GC9A01_CASET,
-        .cmd_raset = GC9A01_RASET,
-        .cmd_ramwr = GC9A01_RAMWR,
-    },
-    
+    .cfg =
+        {
+            .cmd_caset = GC9A01_CASET,
+            .cmd_raset = GC9A01_RASET,
+            .cmd_ramwr = GC9A01_RAMWR,
+        },
+
+    .is_swap = true,
     .init_seq = cGC9A01_INIT_SEQ,
+    .set_window_cb = NULL, // Default callback to set window
 };
 
 /***********************************************************
 ***********************function define**********************
 ***********************************************************/
+/**
+ * @brief Registers a GC9A01 TFT display device using the SPI interface with the display management system.
+ *
+ * This function configures and registers a display device for the GC9A01 series of TFT LCDs 
+ * using the SPI communication protocol. It copies configuration parameters from the provided 
+ * device configuration and uses a predefined initialization sequence specific to GC9A01.
+ *
+ * @param name Name of the display device (used for identification).
+ * @param dev_cfg Pointer to the SPI device configuration structure.
+ *
+ * @return Returns OPRT_OK on success, or an appropriate error code if registration fails.
+ */
 OPERATE_RET tdd_disp_spi_gc9a01_register(char *name, DISP_SPI_DEVICE_CFG_T *dev_cfg)
 {
     if (NULL == name || NULL == dev_cfg) {
@@ -89,18 +106,18 @@ OPERATE_RET tdd_disp_spi_gc9a01_register(char *name, DISP_SPI_DEVICE_CFG_T *dev_
 
     PR_NOTICE("tdd_disp_spi_gc9a01_register: %s", name);
 
-    sg_disp_spi_cfg.cfg.width     = dev_cfg->width;
-    sg_disp_spi_cfg.cfg.height    = dev_cfg->height;
+    sg_disp_spi_cfg.cfg.width = dev_cfg->width;
+    sg_disp_spi_cfg.cfg.height = dev_cfg->height;
     sg_disp_spi_cfg.cfg.pixel_fmt = dev_cfg->pixel_fmt;
-    sg_disp_spi_cfg.cfg.port      = dev_cfg->port;
-    sg_disp_spi_cfg.cfg.spi_clk   = dev_cfg->spi_clk;
-    sg_disp_spi_cfg.cfg.cs_pin    = dev_cfg->cs_pin;
-    sg_disp_spi_cfg.cfg.dc_pin    = dev_cfg->dc_pin;
-    sg_disp_spi_cfg.cfg.rst_pin   = dev_cfg->rst_pin;
-    sg_disp_spi_cfg.rotation      = dev_cfg->rotation;
+    sg_disp_spi_cfg.cfg.port = dev_cfg->port;
+    sg_disp_spi_cfg.cfg.spi_clk = dev_cfg->spi_clk;
+    sg_disp_spi_cfg.cfg.cs_pin = dev_cfg->cs_pin;
+    sg_disp_spi_cfg.cfg.dc_pin = dev_cfg->dc_pin;
+    sg_disp_spi_cfg.cfg.rst_pin = dev_cfg->rst_pin;
+    sg_disp_spi_cfg.rotation = dev_cfg->rotation;
 
     memcpy(&sg_disp_spi_cfg.power, &dev_cfg->power, sizeof(TUYA_DISPLAY_IO_CTRL_T));
     memcpy(&sg_disp_spi_cfg.bl, &dev_cfg->bl, sizeof(TUYA_DISPLAY_BL_CTRL_T));
 
-    return tdl_disp_spi_device_register(name, &sg_disp_spi_cfg);
+    return tdd_disp_spi_device_register(name, &sg_disp_spi_cfg);
 }

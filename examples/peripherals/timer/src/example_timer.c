@@ -13,7 +13,7 @@
  *
  * @note This example is designed for educational purposes and may need to be adapted for production environments.
  *
- * @copyright Copyright (c) 2021-2024 Tuya Inc. All Rights Reserved.
+ * @copyright Copyright (c) 2021-2025 Tuya Inc. All Rights Reserved.
  *
  */
 
@@ -35,7 +35,7 @@
 /***********************************************************
 ***********************variable define**********************
 ***********************************************************/
-#define TIMER_ID TUYA_TIMER_NUM_0
+#define TIMER_ID TUYA_TIMER_NUM_3
 
 static char sg_count = 0;
 
@@ -51,8 +51,8 @@ static char sg_count = 0;
  */
 static void __timer_callback(void *args)
 {
-    /* TAL_PR_ , PR_ ，这两种打印里面有锁，不要在中断里使用 */
-    PR_NOTICE("\r\n------------- Timer Callback --------------\r\n");
+    /* TAL_PR_ , PR_ , these two types of prints have locks inside, do not use them in interrupts */
+    tkl_log_output("\r\n------------- Timer Callback --------------\r\n");
     sg_count++;
 
     if (sg_count >= 5) {
@@ -70,7 +70,7 @@ static void __timer_callback(void *args)
  *
  * @return none
  */
-void user_main()
+void user_main(void)
 {
     OPERATE_RET rt = OPRT_OK;
 
@@ -94,6 +94,10 @@ void user_main()
     /*start timer*/
     TUYA_CALL_ERR_GOTO(tkl_timer_start(TIMER_ID, DELAY_TIME), __EXIT);
     PR_NOTICE("timer %d is start", TIMER_ID);
+
+    while (1) {
+        tal_system_sleep(1000);
+    }
 
 __EXIT:
     return;

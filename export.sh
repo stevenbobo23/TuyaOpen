@@ -3,29 +3,26 @@
 # Usage: . ./export.sh
 #
 
+# Check if virtual environment is already activated
+if [ -n "$VIRTUAL_ENV" ] && [ "$VIRTUAL_ENV" = "$OPEN_SDK_ROOT/.venv" ]; then
+    echo "Virtual environment is already activated."
+    return 0
+fi
+
 # Function to find the project root directory
+pwd_dir="$(pwd)"
+script_dir=$(realpath $(dirname "$0"))
 find_project_root() {
-    local current_dir="$(pwd)"
-    local search_dir="$current_dir"
-    
-    # Look for project identifier files
-    local identifiers=("export.sh" "requirements.txt" "tos.py" ".git")
-    
-    while [ "$search_dir" != "/" ]; do
-        # Check if any identifier file exists in current directory
-        for identifier in "${identifiers[@]}"; do
-            if [ -e "$search_dir/$identifier" ]; then
-                echo "$search_dir"
-                return 0
-            fi
-        done
-        
-        # Move up one directory
-        search_dir=$(dirname "$search_dir")
-    done
-    
-    # Fallback to current directory if no identifiers found
-    echo "$current_dir"
+    if [ -e "$script_dir/export.sh" ] && [ -e "$script_dir/requirements.txt" ]; then
+        echo "$script_dir"
+        return 0
+    fi
+
+    if [ -e "$pwd_dir/export.sh" ] && [ -e "$pwd_dir/requirements.txt" ]; then
+        echo "$pwd_dir"
+        return 0
+    fi
+
     return 1
 }
 
@@ -39,13 +36,20 @@ echo "Script path: $0"
 
 # Additional verification - check for expected project files
 echo "Project files check:"
+EXIT_FLAG=0
 for file in "export.sh" "requirements.txt" "tos.py"; do
     if [ -f "$OPEN_SDK_ROOT/$file" ]; then
         echo "  ✓ Found $file"
     else
         echo "  ✗ Missing $file"
+        EXIT_FLAG=1
     fi
 done
+
+if [ x"1" = x"$EXIT_FLAG" ]; then
+    echo "Erorr: Can't export!"
+    return 1
+fi
 
 # If we're not in the project root and export.sh exists in current directory, use current directory
 if [ "$OPEN_SDK_ROOT" != "$(pwd)" ] && [ -f "./export.sh" ]; then
@@ -114,12 +118,42 @@ if [ ! -f "$OPEN_SDK_ROOT/.venv/bin/activate" ]; then
 fi
 
 
+# Define custom exit function for TuyaOpen environment
+exit() {
+    # Check if we're in TuyaOpen virtual environment
+    if [ -n "$OPEN_SDK_ROOT" ]; then
+        echo "Exiting TuyaOpen environment..."
+
+        # Call the original deactivate function
+        if type deactivate >/dev/null 2>&1; then
+            deactivate
+        fi
+
+        # Clean up TuyaOpen specific environment variables
+        unset OPEN_SDK_PYTHON
+        unset OPEN_SDK_PIP
+        unset OPEN_SDK_ROOT
+
+        # Remove our custom exit function
+        unset -f exit
+
+        echo "TuyaOpen environment deactivated."
+    else
+        # If not in TuyaOpen environment, call the original exit
+        command exit "$@"
+    fi
+}
+
 # activate
 echo "DEBUG: Activating virtual environment from $OPEN_SDK_ROOT/.venv/bin/activate"
 . ${OPEN_SDK_ROOT}/.venv/bin/activate
 export PATH=$PATH:${OPEN_SDK_ROOT}
 export OPEN_SDK_PYTHON=${OPEN_SDK_ROOT}/.venv/bin/python
 export OPEN_SDK_PIP=${OPEN_SDK_ROOT}/.venv/bin/pip
+export OPEN_SDK_ROOT=$OPEN_SDK_ROOT
+
+# Export the exit function
+export -f exit
 
 # Verify activation worked
 if [ -z "$VIRTUAL_ENV" ]; then
@@ -131,12 +165,24 @@ echo "Virtual environment activated successfully: $VIRTUAL_ENV"
 # install dependencies
 pip install -r ${OPEN_SDK_ROOT}/requirements.txt
 
-# remove .env.json
-rm -f ${OPEN_SDK_ROOT}/.env.json
+# remove cache files
+CACHE_PATH=${OPEN_SDK_ROOT}/.cache
+mkdir -p ${CACHE_PATH}
+rm -f ${CACHE_PATH}/.env.json
+rm -f ${CACHE_PATH}/.dont_prompt_update_platform
 
 # complete
 eval "$(bash -c '_TOS_PY_COMPLETE=bash_source tos.py')"
 
+# hello tuya
+HELLO_TUYA='
+ ______                 ____
+/_  __/_ ____ _____ _  / __ \___  ___ ___
+ / / / // / // / _ `/ / /_/ / _ \/ -_) _ \
+/_/  \_,_/\_, /\_,_/  \____/ .__/\__/_//_/
+         /___/            /_/
+'
 echo "****************************************"
-echo "Exit use: deactivate"
+echo $HELLO_TUYA
+echo "Exit use: exit"
 echo "****************************************"
