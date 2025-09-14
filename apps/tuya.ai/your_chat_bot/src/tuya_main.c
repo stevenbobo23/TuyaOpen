@@ -46,6 +46,7 @@
 #include "ai_audio.h"
 #include "reset_netcfg.h"
 #include "app_system_info.h"
+#include "app_car_control.h"
 
 /* Tuya device handle */
 tuya_iot_client_t ai_client;
@@ -55,6 +56,7 @@ tuya_iot_client_t ai_client;
 #endif
 
 #define DPID_VOLUME 3
+#define DPID_CAR_CONTROL 103
 
 static uint8_t _need_reset = 0;
 
@@ -90,15 +92,44 @@ void user_upgrade_notify_on(tuya_iot_client_t *client, cJSON *upgrade)
 
 OPERATE_RET audio_dp_obj_proc(dp_obj_recv_t *dpobj)
 {
+    PR_DEBUG("数据点对象内容 - 命令类型: %d, 数据类型: %d, 数据点数量: %u", dpobj->cmd_tp, dpobj->dtt_tp, dpobj->dpscnt);
+    if (dpobj->devid != NULL) {
+        PR_DEBUG("设备ID: %s", dpobj->devid);
+    } else {
+        PR_DEBUG("设备ID: 空");
+    }
+    
     uint32_t index = 0;
     for (index = 0; index < dpobj->dpscnt; index++) {
         dp_obj_t *dp = dpobj->dps + index;
-        PR_DEBUG("idx:%d dpid:%d type:%d ts:%u", index, dp->id, dp->type, dp->time_stamp);
+        PR_DEBUG("索引:%d 数据点ID:%d 类型:%d 时间戳:%u", index, dp->id, dp->type, dp->time_stamp);
+        
+        // 根据数据点类型打印不同的值
+        switch (dp->type) {
+        case PROP_BOOL:
+            PR_DEBUG("数据点[%d] 值: %s (布尔类型)", index, dp->value.dp_bool ? "真" : "假");
+            break;
+        case PROP_VALUE:
+            PR_DEBUG("数据点[%d] 值: %d (数值类型)", index, dp->value.dp_value);
+            break;
+        case PROP_STR:
+            PR_DEBUG("数据点[%d] 值: %s (字符串类型)", index, dp->value.dp_str);
+            break;
+        case PROP_ENUM:
+            PR_DEBUG("数据点[%d] 值: %d (枚举类型)", index, dp->value.dp_enum);
+            break;
+        case PROP_BITMAP:
+            PR_DEBUG("数据点[%d] 值: 0x%X (位图类型)", index, dp->value.dp_bitmap);
+            break;
+        default:
+            PR_DEBUG("数据点[%d] 未知类型: %d", index, dp->type);
+            break;
+        }
 
         switch (dp->id) {
         case DPID_VOLUME: {
             uint8_t volume = dp->value.dp_value;
-            PR_DEBUG("volume:%d", volume);
+            PR_DEBUG("音量设置为:%d", volume);
             ai_audio_set_volume(volume);
             char volume_str[20] = {0};
 #if defined(ENABLE_CHAT_DISPLAY) && (ENABLE_CHAT_DISPLAY == 1)
@@ -107,7 +138,46 @@ OPERATE_RET audio_dp_obj_proc(dp_obj_recv_t *dpobj)
 #endif
             break;
         }
+        case DPID_CAR_CONTROL: {
+            uint8_t direction = dp->value.dp_enum;
+            PR_DEBUG("小车控制命令:%d", direction);
+            switch (direction) {
+                case 0: // 前进
+                    PR_DEBUG("小车向前移动");
+                    app_car_control_move(CAR_DIRECTION_FORWARD);
+                    break;
+                case 1: // 后退
+                    PR_DEBUG("小车向后移动");
+                    app_car_control_move(CAR_DIRECTION_BACKWARD);
+                    break;
+                case 2: // 左转
+                    PR_DEBUG("小车向左转");
+                    app_car_control_move(CAR_DIRECTION_LEFT);
+                    break;
+                case 3: // 右转
+                    PR_DEBUG("小车向右转");
+                    app_car_control_move(CAR_DIRECTION_RIGHT);
+                    break;
+                case 4: // 停止
+                    PR_DEBUG("小车停止");
+                    app_car_control_move(CAR_DIRECTION_STOP);
+                    break;
+                case 5: // 左移
+                    PR_DEBUG("小车左移");
+                    app_car_control_move(CAR_DIRECTION_MOVE_LEFT);
+                    break;
+                case 6: // 右移
+                    PR_DEBUG("小车右移");
+                    app_car_control_move(CAR_DIRECTION_MOVE_RIGHT);
+                    break;
+                default:
+                    PR_DEBUG("未处理的小车控制方向:%d", direction);
+                    break;
+            }
+            break;
+        }
         default:
+            PR_DEBUG("未处理的数据点ID:%d", dp->id);
             break;
         }
     }
@@ -126,7 +196,7 @@ OPERATE_RET ai_audio_volume_upload(void)
     dp_obj.type = PROP_VALUE;
     dp_obj.value.dp_value = volume;
 
-    PR_DEBUG("DP upload volume:%d", volume);
+    PR_DEBUG("数据点上报 - 音量值:%d", volume);
 
     return tuya_iot_dp_obj_report(client, client->activate.devid, &dp_obj, 1, 0);
 }
@@ -257,7 +327,7 @@ void user_main(void)
 
     //! open iot development kit runtim init
     cJSON_InitHooks(&(cJSON_Hooks){.malloc_fn = tal_malloc, .free_fn = tal_free});
-    tal_log_init(TAL_LOG_LEVEL_DEBUG, 1024, (TAL_LOG_OUTPUT_CB)tkl_log_output);
+    tal_log_init(TAL_LOG_LEVEL_DEBUG, 1024, (TAL_LOG_OUTPUT_CB)user_log_output_cb);
 
     PR_NOTICE("Application information:");
     PR_NOTICE("Project name:        %s", PROJECT_NAME);
@@ -329,6 +399,11 @@ void user_main(void)
     ret = app_chat_bot_init();
     if (ret != OPRT_OK) {
         PR_ERR("tuya_audio_recorde_init failed");
+    }
+    
+    ret = app_car_control_init();
+    if (ret != OPRT_OK) {
+        PR_ERR("app_car_control_init failed");
     }
 
     app_system_info();

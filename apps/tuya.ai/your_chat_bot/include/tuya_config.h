@@ -21,13 +21,15 @@
  * work.
  *
  */
+{"data":{"dps":{"102":1}},"protocol":5,"t":1755829789}
+{"data":{"dps":{"3":51}},"protocol":5,"t":1755829726}
 
 #ifndef TUYA_PRODUCT_ID
-#define TUYA_PRODUCT_ID "p320pepzvmm1ghse"
+#define TUYA_PRODUCT_ID "x2cfpzcygp4e8eqm"
 #endif
 
-#define TUYA_OPENSDK_UUID    "uuidxxxxxxxxxxxxxxxx"             // Please change the correct uuid
-#define TUYA_OPENSDK_AUTHKEY "keyxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" // Please change the correct authkey
+#define TUYA_OPENSDK_UUID    "uuided4f6bf5db65fed9"             // Please change the correct uuid
+#define TUYA_OPENSDK_AUTHKEY "AxmY6HTnK5JaeOdfxbyWo6ER2AgScFi7" // Please change the correct authkey
 
 /**
  * @brief PINCODE for AP provisioning
